@@ -24,8 +24,15 @@ class Settings:
     scan_hotkey: str = "f8"
     hide_hotkey: str = "f9"
     overlay_seconds: int = 15
-    # Minimum match score (0..1) for an identification to be shown.
-    min_confidence: float = 0.55
+    # Minimum icon-match score (0..1) for an item whose name couldn't be read.
+    min_confidence: float = 0.70
+    # Show low-confidence guesses in the overlay (dimmed, with a "?").
+    show_uncertain: bool = True
+    # Guesses worth less than this (RUB) are accepted at moderate confidence: mixing up
+    # two cheap items (e.g. Glock 9x19 vs .45 mags) costs little. Valuable items stay strict.
+    low_value_threshold: int = 10000
+    # Item IDs that are never shown or exported. Default: WI-FI Camera (special slot).
+    blacklist: list[str] = field(default_factory=lambda: ["5b4391a586f7745321235ab2"])
     # Highlight items worth at least this many roubles per slot.
     valuable_per_slot: int = 30000
     # Selected tarkov.dev game mode, and the options reported by /endpoints "gameModes".
@@ -42,6 +49,8 @@ class Settings:
         if SETTINGS_FILE.exists():
             raw = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
             known = {f.name for f in fields(cls)}
+            if raw.get("min_confidence") == 0.55:  # old default was too permissive
+                raw["min_confidence"] = 0.70
             return cls(**{k: v for k, v in raw.items() if k in known})
         return cls()
 

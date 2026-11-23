@@ -45,10 +45,13 @@ prices, switch between PvP and PvE prices, or save debug images.
 If grids aren't found, the cell size is probably wrong for your display:
 1. Tick **Save debug images** in the tray menu and scan once.
 2. Check `debug/*_annotated.png`: orange = detected grid, green = identified
-   item, red = unidentified item.
+   item, yellow = equipped item, red = low-confidence guess.
 3. Adjust UI scale or *Cell size @1080p* in Settings. You can also re-test a
    saved screenshot offline:
    `python -m tarkov_loot_helper scan debug/XXXX_raw.png --ui-scale 1.0`
+
+Items whose IDs are listed under `blacklist` in `settings.json` are never shown
+(the WI-FI Camera in the special slots is blacklisted by default).
 
 ## Project layout
 
@@ -61,9 +64,11 @@ If grids aren't found, the cell size is probably wrong for your display:
 1. `Identification/grid.py`: finds thin, bright grid lines, links the points where they
    cross into lattices (one per container), then merges cells whose shared
    border is hidden by an item image into multi-cell items.
-2. `Identification/identify.py`: compares each item region with tarkov.dev icons of the
-   same footprint (including rotated items), ignoring the name and stack-count
-   corners.
+2. `Identification/identify.py`: works out each tile's footprint (cols x rows)
+   first, then reads its short name with Windows OCR (`ocr.py`) and matches it to
+   items of that size. Guns are matched by name and caliber at any size and are
+   valued as the base weapon. Icon comparison breaks ties and is the fallback.
+   `equipment.py` does the same for equipped items in the gear slot panels.
 3. `Application/TarkovDevAPIConnector.py`: all requests to the tarkov.dev JSON API
    (`https://json.tarkov.dev/{gameMode}/items`, `/tasks`, `/hideout`,
    `/traders`, plus `_{lang}` translations), cached for an hour in `data/`.

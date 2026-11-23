@@ -19,6 +19,19 @@ class Item:
     best_trader_price: int
     quest_needs: list[str] = field(default_factory=list)
     hideout_needs: list[str] = field(default_factory=list)
+    types: list[str] = field(default_factory=list)
+    caliber: str = ""  # guns only, e.g. "762x54R"
+    capacity: int = 0  # magazines only: rounds it holds (shown as "x/17" on the tile)
+    has_slots: bool = False   # can hold attachments (rails, mounts, handguards...)
+    armor_part: bool = False  # built-in armor component of a helmet/armor (TOP, NAPE...)
+
+    @property
+    def is_gun(self) -> bool:
+        return "gun" in self.types
+
+    @property
+    def is_preset(self) -> bool:
+        return "preset" in self.types
 
     @property
     def best_price(self) -> int:
@@ -46,6 +59,11 @@ def load_items(mode: str = "regular", force: bool = False, language: str = "en")
             flea_price=it.get("avg24hPrice") or 0,
             best_trader=traders.get(best["trader"], "") if best else "",
             best_trader_price=(best.get("priceRUB") or 0) if best else 0,
+            types=list(it.get("types") or []),
+            caliber=str((it.get("properties") or {}).get("caliber") or "").removeprefix("Caliber"),
+            capacity=int((it.get("properties") or {}).get("capacity") or 0),
+            has_slots=bool((it.get("properties") or {}).get("slots")),
+            armor_part=(it.get("properties") or {}).get("propertiesType") == "ItemPropertiesArmorAttachment",
         )
 
     for task in connector.fetch_tasks(force).values():
