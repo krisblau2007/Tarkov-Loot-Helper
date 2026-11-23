@@ -6,10 +6,10 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from .api import Item
-from .config import Settings
-from .grid import Grid, Region, detect_grids, split_items
-from .identify import Identifier
+from tarkov_loot_helper.Application.api import Item
+from tarkov_loot_helper.Configuration.config import Settings
+from tarkov_loot_helper.Identification.grid import Grid, Region, detect_grids, split_items
+from tarkov_loot_helper.Identification.identify import Identifier
 
 
 @dataclass

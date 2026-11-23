@@ -6,8 +6,8 @@ import json
 from collections import Counter
 from datetime import datetime
 
-from .config import EXPORT_DIR
-from .scanner import ScanResult
+from tarkov_loot_helper.Configuration.config import EXPORT_DIR
+from tarkov_loot_helper.Identification.scanner import ScanResult
 
 
 def export(result: ScanResult) -> tuple[str, str]:

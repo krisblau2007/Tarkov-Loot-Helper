@@ -4,7 +4,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout,
                              QLineEdit, QSpinBox)
 
-from .config import Settings
+from tarkov_loot_helper.Configuration.config import Settings
 
 
 class SettingsDialog(QDialog):
@@ -45,9 +45,14 @@ class SettingsDialog(QDialog):
         form.addRow("Valuable threshold (RUB/slot)", self.valuable)
 
         self.mode = QComboBox()
-        self.mode.addItems(["regular", "pve"])
+        self.mode.addItems(settings.available_game_modes)
         self.mode.setCurrentText(settings.game_mode)
-        form.addRow("Game mode (prices)", self.mode)
+        form.addRow("Game mode", self.mode)
+
+        self.language = QComboBox()
+        self.language.addItems(settings.available_languages)
+        self.language.setCurrentText(settings.language)
+        form.addRow("Item name language", self.language)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
@@ -65,5 +70,6 @@ class SettingsDialog(QDialog):
         s.min_confidence = self.conf.value()
         s.valuable_per_slot = self.valuable.value()
         s.game_mode = self.mode.currentText()
+        s.language = self.language.currentText()
         s.save()
         super().accept()

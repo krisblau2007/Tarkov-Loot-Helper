@@ -21,9 +21,13 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.cmd == "setup":
-        from . import api, icons
-        from .config import Settings
-        items = api.load_items(Settings.load().game_mode, force=True)
+        from tarkov_loot_helper.Application import api
+        from tarkov_loot_helper.Identification import icons
+        from tarkov_loot_helper.Configuration.config import Settings
+        s = Settings.load()
+        s.refresh_api_options(force=True)
+        print(f"Game modes: {', '.join(s.available_game_modes)} (using '{s.game_mode}')")
+        items = api.load_items(s.game_mode, force=True, language=s.language)
         print(f"{len(items)} items loaded, downloading icons...")
         n = icons.prefetch(list(items.values()), lambda i, t: print(f"  {i}/{t}"))
         print(f"{n} icons cached.")
@@ -33,10 +37,12 @@ def main() -> int:
         import cv2
         import numpy as np
 
-        from . import api, export
-        from .config import Settings
-        from .identify import Identifier
-        from .scanner import render_debug, scan_image
+        from tarkov_loot_helper.Application import api
+
+        from tarkov_loot_helper.Identification import export
+        from tarkov_loot_helper.Configuration.config import Settings
+        from tarkov_loot_helper.Identification.identify import Identifier
+        from tarkov_loot_helper.Identification.scanner import render_debug, scan_image
         settings = Settings.load()
         if args.ui_scale:
             settings.ui_scale = args.ui_scale
@@ -44,7 +50,7 @@ def main() -> int:
         if img is None:
             print(f"Could not read {args.image}")
             return 1
-        result = scan_image(img, settings, Identifier(api.load_items(settings.game_mode)))
+        result = scan_image(img, settings, Identifier(api.load_items(settings.game_mode, language=settings.language)))
         out = args.image.rsplit(".", 1)[0] + "_annotated.png"
         cv2.imwrite(out, render_debug(result))
         print(f"cell={settings.cell_px(img.shape[0]):.1f}px  grids={len(result.grids)}  "
@@ -58,9 +64,25 @@ def main() -> int:
             print("Exported:", *export.export(result))
         return 0
 
-    from .app import App
+    from tarkov_loot_helper.Application.app import App
     return App().run()
 
 
+def _crash_hook(exc_type, exc, tb) -> None:
+    """Unhandled errors (including inside Qt callbacks) are fatal: print and exit non-zero."""
+    import traceback
+    print("\nCRITICAL ERROR - Tarkov Loot Helper has stopped:\n", file=sys.stderr)
+    traceback.print_exception(exc_type, exc, tb)
+    sys.stderr.flush()
+    os._exit(1)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    import os
+    sys.excepthook = _crash_hook
+    try:
+        sys.exit(main())
+    except (SystemExit, KeyboardInterrupt):
+        raise
+    except BaseException:
+        _crash_hook(*sys.exc_info())

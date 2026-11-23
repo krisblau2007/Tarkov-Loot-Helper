@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
 ICON_DIR = DATA_DIR / "icons"
 EXPORT_DIR = ROOT / "exports"
@@ -28,7 +28,11 @@ class Settings:
     min_confidence: float = 0.55
     # Highlight items worth at least this many roubles per slot.
     valuable_per_slot: int = 30000
-    game_mode: str = "regular"  # "regular" or "pve"
+    # Selected tarkov.dev game mode, and the options reported by /endpoints "gameModes".
+    game_mode: str = "regular"
+    available_game_modes: list[str] = field(default_factory=lambda: ["regular", "pve", "pvp-season"])
+    language: str = "en"
+    available_languages: list[str] = field(default_factory=lambda: ["en"])
 
     def cell_px(self, screen_height: int) -> float:
         return self.base_cell_px * (screen_height / 1080.0) * self.ui_scale
@@ -40,6 +44,24 @@ class Settings:
             known = {f.name for f in fields(cls)}
             return cls(**{k: v for k, v in raw.items() if k in known})
         return cls()
+
+    def refresh_api_options(self, force: bool = False) -> bool:
+        """Update game mode / language options from tarkov.dev /endpoints. Returns True if changed."""
+        from tarkov_loot_helper.Application.TarkovDevAPIConnector import TarkovDevAPIConnector
+        api = TarkovDevAPIConnector()
+        modes, langs = api.game_modes(force), api.languages(force)
+        changed = (modes and modes != self.available_game_modes) or (langs and langs != self.available_languages)
+        if modes:
+            self.available_game_modes = modes
+            if self.game_mode not in modes:
+                self.game_mode = modes[0]
+        if langs:
+            self.available_languages = langs
+            if self.language not in langs:
+                self.language = "en" if "en" in langs else langs[0]
+        if changed:
+            self.save()
+        return bool(changed)
 
     def save(self) -> None:
         SETTINGS_FILE.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")

@@ -5,8 +5,11 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from .api import Item
-from .icons import load_icon
+from tarkov_loot_helper.Application.api import Item
+from tarkov_loot_helper.Configuration.config import DATA_DIR
+from tarkov_loot_helper.Identification.icons import icon_path, load_icon
+
+TEMPLATE_DIR = DATA_DIR / "templates"
 
 S = 24  # normalised pixels per cell for comparison
 
@@ -33,19 +36,39 @@ class Identifier:
         key = (w, h)
         if key in self._bank:
             return self._bank[key]
-        refs, imgs = [], []
+        candidates = []
         for it in self.items.values():
             for rotated in (False, True):
                 iw, ih = (it.height, it.width) if rotated else (it.width, it.height)
                 if (iw, ih) != (w, h) or (rotated and it.width == it.height):
                     continue
-                icon = load_icon(it)
-                if icon is None:
-                    continue
-                if rotated:
-                    icon = cv2.rotate(icon, cv2.ROTATE_90_CLOCKWISE)
-                refs.append((it, rotated))
-                imgs.append(_normalise(icon, w, h))
+                candidates.append((it, rotated))
+
+        # Reuse the prepared templates from disk if the item set hasn't changed.
+        cache_file = TEMPLATE_DIR / f"{w}x{h}_s{S}.npz"
+        wanted = [f"{it.id}:{int(rot)}" for it, rot in candidates if icon_path(it).exists()]
+        if cache_file.exists():
+            try:
+                cached = np.load(cache_file)
+                keys = list(cached["keys"])
+                if set(keys) >= set(wanted):
+                    lookup = {f"{it.id}:{int(rot)}": (it, rot) for it, rot in candidates}
+                    pick = [i for i, k in enumerate(keys) if k in lookup]
+                    refs = [lookup[keys[i]] for i in pick]
+                    self._bank[key] = (refs, cached["arr"][pick])
+                    return self._bank[key]
+            except Exception:  # noqa: BLE001 - corrupt cache, rebuild
+                pass
+
+        refs, imgs = [], []
+        for it, rotated in candidates:
+            icon = load_icon(it)
+            if icon is None:
+                continue
+            if rotated:
+                icon = cv2.rotate(icon, cv2.ROTATE_90_CLOCKWISE)
+            refs.append((it, rotated))
+            imgs.append(_normalise(icon, w, h))
         mask = _mask(w, h)
         if imgs:
             arr = np.stack(imgs)[:, mask]  # (N, P, 3)
@@ -55,6 +78,10 @@ class Identifier:
         else:
             arr = np.zeros((0, int(mask.sum()) * 3), np.float32)
         self._bank[key] = (refs, arr)
+        if refs:
+            TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+            keys = np.array([f"{it.id}:{int(rot)}" for it, rot in refs])
+            np.savez(cache_file, keys=keys, arr=arr.astype(np.float32))
         return self._bank[key]
 
     def identify(self, crop: np.ndarray, w: int, h: int) -> tuple[Item | None, float, bool]:
