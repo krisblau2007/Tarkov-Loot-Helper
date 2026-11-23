@@ -50,23 +50,37 @@ class Overlay(QWidget):
         font = QFont("Segoe UI", 8, QFont.Weight.Bold)
         p.setFont(font)
         s = self.scale
-        for d in self.result.identified:
-            it = d.item
-            x, y, w, h = d.region.rect
+        shown = list(self.result.identified)
+        if self.settings.show_uncertain:
+            shown += self.result.uncertain
+        for d in shown:
+            it = d.item or d.guess
+            x, y, w, h = d.rect
             rect = QRect(int(x * s), int(y * s), int(w * s), int(h * s))
-            if it.quest_needs:
+            per_slot = d.price_per_slot if d.item else it.best_price // max(1, d.width * d.height)
+            if d.item is None:
+                color = QColor(150, 150, 150, 140)
+            elif it.quest_needs:
                 color = QColor(255, 200, 0)
             elif it.hideout_needs:
                 color = QColor(80, 200, 255)
-            elif it.price_per_slot >= self.settings.valuable_per_slot:
+            elif per_slot >= self.settings.valuable_per_slot:
                 color = QColor(60, 230, 90)
             else:
                 color = QColor(200, 200, 200, 160)
-            p.setPen(QPen(color, 2))
+            pen = QPen(color, 2)
+            if d.item is None:
+                pen.setStyle(Qt.PenStyle.DashLine)
+            p.setPen(pen)
             p.drawRect(rect.adjusted(1, 1, -1, -1))
 
             tags = ("Q " if it.quest_needs else "") + ("H " if it.hideout_needs else "")
-            label = f"{tags}{fmt_rub(it.price_per_slot)}/slot"
+            if d.item is None:
+                label = f"? {it.short_name}"
+            elif d.kind == "equipped":
+                label = f"{tags}{it.short_name} {fmt_rub(it.best_price)}"
+            else:
+                label = f"{tags}{fmt_rub(per_slot)}/slot"
             band = QRect(rect.left() + 2, rect.bottom() - 15, rect.width() - 4, 14)
             p.fillRect(band, QColor(0, 0, 0, 190))
             p.setPen(color)

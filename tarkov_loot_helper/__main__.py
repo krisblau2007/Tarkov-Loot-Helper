@@ -18,6 +18,7 @@ def main() -> int:
     sc.add_argument("image")
     sc.add_argument("--ui-scale", type=float, help="override UI scale for this run")
     sc.add_argument("--export", action="store_true", help="also write CSV/JSON")
+    sc.add_argument("--out", help="where to write the annotated image")
     args = parser.parse_args()
 
     if args.cmd == "setup":
@@ -51,14 +52,16 @@ def main() -> int:
             print(f"Could not read {args.image}")
             return 1
         result = scan_image(img, settings, Identifier(api.load_items(settings.game_mode, language=settings.language)))
-        out = args.image.rsplit(".", 1)[0] + "_annotated.png"
+        out = args.out or args.image.rsplit(".", 1)[0] + "_annotated.png"
         cv2.imwrite(out, render_debug(result))
         print(f"cell={settings.cell_px(img.shape[0]):.1f}px  grids={len(result.grids)}  "
               f"regions={len(result.detections)}  identified={len(result.identified)}")
-        for d in result.identified:
-            it = d.item
-            print(f"  [{d.region.grid_index}] {it.name:<45} {d.score:.2f}  "
-                  f"{it.price_per_slot:>8,}/slot  {'Q' if it.quest_needs else ' '}{'H' if it.hideout_needs else ' '}")
+        for d in result.detections:
+            it = d.item or d.guess
+            where = "equip" if d.kind == "equipped" else f"{d.container}:{d.col},{d.row}"
+            print(f"  {'  ' if d.item else '? '}[{where:>8}] {d.width}x{d.height} {it.name[:44]:<44} "
+                  f"{d.score:.2f} {d.method:<8} {d.price_per_slot:>8,}/slot  "
+                  f"{'Q' if it.quest_needs else ' '}{'H' if it.hideout_needs else ' '}  ocr={d.name_text!r}")
         print(f"Annotated image: {out}")
         if args.export:
             print("Exported:", *export.export(result))

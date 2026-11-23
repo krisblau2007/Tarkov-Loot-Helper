@@ -17,16 +17,16 @@ def export(result: ScanResult) -> tuple[str, str]:
     for d in result.identified:
         it = d.item
         rows.append({
-            "container": d.region.grid_index,
-            "col": d.region.col,
-            "row": d.region.row,
+            "location": "equipped" if d.kind == "equipped" else f"container {d.container}",
+            "col": d.col,
+            "row": d.row,
             "name": it.name,
             "short_name": it.short_name,
-            "size": f"{it.width}x{it.height}",
+            "size": f"{d.width}x{d.height}",
             "flea_price": it.flea_price,
             "best_trader": it.best_trader,
             "trader_price": it.best_trader_price,
-            "price_per_slot": it.price_per_slot,
+            "price_per_slot": d.price_per_slot,
             "quest_needs": "; ".join(it.quest_needs),
             "hideout_needs": "; ".join(it.hideout_needs),
             "confidence": round(d.score, 3),
