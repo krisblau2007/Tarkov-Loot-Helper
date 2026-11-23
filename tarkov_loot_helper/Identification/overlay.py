@@ -5,8 +5,8 @@ from PyQt6.QtCore import QRect, Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import QWidget
 
-from .config import Settings
-from .scanner import ScanResult
+from tarkov_loot_helper.Configuration.config import Settings
+from tarkov_loot_helper.Identification.scanner import ScanResult
 
 
 def fmt_rub(v: int) -> str:

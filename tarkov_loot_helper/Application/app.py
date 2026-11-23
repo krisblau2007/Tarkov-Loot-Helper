@@ -12,13 +12,15 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup, QColor, QIcon, QPixmap
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import api, export
-from .capture import grab
-from .config import DEBUG_DIR, Settings
-from .identify import Identifier
-from .overlay import Overlay
-from .scanner import render_debug, scan_image
-from .settings_dialog import SettingsDialog
+from tarkov_loot_helper.Application import api
+
+from tarkov_loot_helper.Identification import export
+from tarkov_loot_helper.Identification.capture import grab
+from tarkov_loot_helper.Configuration.config import DEBUG_DIR, Settings
+from tarkov_loot_helper.Identification.identify import Identifier
+from tarkov_loot_helper.Identification.overlay import Overlay
+from tarkov_loot_helper.Identification.scanner import render_debug, scan_image
+from tarkov_loot_helper.Configuration.settings_dialog import SettingsDialog
 
 UI_SCALE_PRESETS = [0.75, 0.85, 1.0, 1.1, 1.25, 1.5]
 
@@ -82,14 +84,26 @@ class App:
         self.tray.show()
 
     def _bind_hotkeys(self):
-        keyboard.unhook_all_hotkeys()
-        keyboard.add_hotkey(self.settings.scan_hotkey, self.bridge.scan_requested.emit)
-        keyboard.add_hotkey(self.settings.hide_hotkey, self.bridge.hide_requested.emit)
+        # Remove only hotkeys we registered: keyboard.unhook_all_hotkeys() crashes
+        # (no 'blocking_hotkeys' attribute) if called before any hotkey exists.
+        for handle in getattr(self, "_hotkeys", []):
+            try:
+                keyboard.remove_hotkey(handle)
+            except (KeyError, ValueError):
+                pass
+        self._hotkeys = [
+            keyboard.add_hotkey(self.settings.scan_hotkey, self.bridge.scan_requested.emit),
+            keyboard.add_hotkey(self.settings.hide_hotkey, self.bridge.hide_requested.emit),
+        ]
 
     def _load_data(self, force: bool = False):
         try:
             self.bridge.message.emit("Loading item data from tarkov.dev...")
-            items = api.load_items(self.settings.game_mode, force=force)
+            try:
+                self.settings.refresh_api_options(force)
+            except Exception:  # noqa: BLE001 - keep using saved options
+                pass
+            items = api.load_items(self.settings.game_mode, force=force, language=self.settings.language)
             self.identifier = Identifier(items)
             self.bridge.message.emit(
                 f"Ready: {len(items)} items. Press {self.settings.scan_hotkey.upper()} with inventory open.")
@@ -103,12 +117,12 @@ class App:
         self.bridge.message.emit(f"UI scale set to {v:.2f}")
 
     def open_settings(self):
-        old_mode = self.settings.game_mode
+        old_mode = (self.settings.game_mode, self.settings.language)
         if SettingsDialog(self.settings).exec():
             self._bind_hotkeys()
             for act in self.scale_group.actions():
                 act.setChecked(abs(float(act.text()) - self.settings.ui_scale) < 1e-3)
-            if self.settings.game_mode != old_mode:
+            if (self.settings.game_mode, self.settings.language) != old_mode:
                 threading.Thread(target=self._load_data, daemon=True).start()
 
     def start_scan(self):

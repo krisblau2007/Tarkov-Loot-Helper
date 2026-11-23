@@ -7,8 +7,8 @@ import cv2
 import numpy as np
 import requests
 
-from .api import Item
-from .config import ICON_DIR
+from tarkov_loot_helper.Application.api import Item
+from tarkov_loot_helper.Configuration.config import ICON_DIR
 
 
 def icon_path(item: Item):

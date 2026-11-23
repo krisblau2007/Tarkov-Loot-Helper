@@ -7,7 +7,12 @@ needed for quests or the hideout.
 
 It only takes screenshots. It never reads or modifies game memory or files.
 
-## Setup
+## Quick start
+
+Double-click **`Launch Tarkov Loot Helper.bat`**. On the first run it sets
+everything up, then it starts the app in the system tray.
+
+## Manual setup
 
 ```powershell
 python -m venv .venv
@@ -45,13 +50,22 @@ If grids aren't found, the cell size is probably wrong for your display:
    saved screenshot offline:
    `python -m tarkov_loot_helper scan debug/XXXX_raw.png --ui-scale 1.0`
 
+## Project layout
+
+- `tarkov_loot_helper/Application`: tray app, tarkov.dev API connector, item model
+- `tarkov_loot_helper/Configuration`: settings and the settings dialog
+- `tarkov_loot_helper/Identification`: screen capture, grid detection, icon matching, overlay, export
+
 ## How it works
 
-1. `grid.py`: finds thin, bright grid lines, links the points where they
+1. `Identification/grid.py`: finds thin, bright grid lines, links the points where they
    cross into lattices (one per container), then merges cells whose shared
    border is hidden by an item image into multi-cell items.
-2. `identify.py`: compares each item region with tarkov.dev icons of the
+2. `Identification/identify.py`: compares each item region with tarkov.dev icons of the
    same footprint (including rotated items), ignoring the name and stack-count
    corners.
-3. `api.py`: prices, quest and hideout requirements from api.tarkov.dev,
-   cached for an hour in `data/`.
+3. `Application/TarkovDevAPIConnector.py`: all requests to the tarkov.dev JSON API
+   (`https://json.tarkov.dev/{gameMode}/items`, `/tasks`, `/hideout`,
+   `/traders`, plus `_{lang}` translations), cached for an hour in `data/`.
+   The game modes come from `/endpoints` and are saved in `settings.json`.
+   `Application/api.py` turns that raw data into `Item` objects.
